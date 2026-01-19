@@ -16,26 +16,24 @@ const App: React.FC = () => {
 
     const init = async () => {
       try {
+        // 1. Autenticación
         await signInAnonymously(auth);
-        console.log("Autenticado en Firebase");
+        console.log("Sesión anónima iniciada.");
         
-        // SUSCRIPCIÓN EN TIEMPO REAL
-        // Esto reemplaza la carga manual. Cada vez que Firebase cambie, 
-        // el estado 'quotes' se actualizará solo.
+        // 2. Suscripción en tiempo real
         unsubscribe = storageService.subscribeToQuotes((data) => {
           setQuotes(data);
-          setIsLoading(false);
+          setIsLoading(false); // Deja de cargar en cuanto recibe el primer paquete (aunque esté vacío)
         });
 
       } catch (error: any) {
-        console.warn("Firebase Auth error", error.code);
+        console.error("Error de inicialización de App:", error);
         setIsLoading(false);
       }
     };
 
     init();
 
-    // Limpieza: Cerramos la conexión cuando el componente se destruye
     return () => {
       if (unsubscribe) unsubscribe();
     };
@@ -53,17 +51,17 @@ const App: React.FC = () => {
 
   const handleSaveQuote = async (quote: Quote) => {
     try {
-        // Al guardar, el listener de useEffect detectará el cambio automáticamente
-        // y actualizará la lista en el Dashboard sin que hagamos nada más.
+        // Al usar await aquí, nos aseguramos de que se guarde antes de volver
         await storageService.saveQuote(quote);
+        // Volvemos al dashboard. El listener de subscribeToQuotes se encargará
+        // de pintar la nueva cotización automáticamente.
         setView('dashboard');
     } catch (e) {
-        alert("Error al guardar.");
+        // El error ya lo maneja el service con un alert
     }
   };
 
   const handleDeleteQuote = async (id: string) => {
-    // Al borrar, desaparecerá de todas las pantallas conectadas al instante
     await storageService.deleteQuote(id);
   };
 
@@ -75,8 +73,9 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0f172a] text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mb-4"></div>
-        <p className="text-sm font-bold tracking-widest animate-pulse">SINCRONIZANDO NUBE...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500 mb-6"></div>
+        <h2 className="text-xl font-black tracking-widest">IMPRESOS URIBE</h2>
+        <p className="text-xs text-gray-400 mt-2 uppercase tracking-widest animate-pulse">Sincronizando base de datos...</p>
       </div>
     );
   }
