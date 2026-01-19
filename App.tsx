@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Dashboard } from './components/Dashboard';
-import { Editor } from './components/Editor';
-import { Quote } from './types';
-import * as storageService from './services/storageService';
+import { Dashboard } from './components/Dashboard.tsx';
+import { Editor } from './components/Editor.tsx';
+import { Quote } from './types.ts';
+import * as storageService from './services/storageService.ts';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'editor'>('dashboard');

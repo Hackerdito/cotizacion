@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Quote, COMPANY_INFO } from '../types';
+import { Quote, COMPANY_INFO } from '../types.ts';
 
 interface QuotePreviewProps {
   quote: Quote;

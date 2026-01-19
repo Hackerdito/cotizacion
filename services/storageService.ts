@@ -1,4 +1,4 @@
-import { Quote } from '../types';
+import { Quote } from '../types.ts';
 
 const STORAGE_KEY = 'impresos_uribe_quotes';
 

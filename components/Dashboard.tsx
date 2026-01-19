@@ -1,5 +1,5 @@
 import React from 'react';
-import { Quote } from '../types';
+import { Quote } from '../types.ts';
 import { Plus, Edit2, Trash2, FileText, Search, Calendar, User } from 'lucide-react';
 
 interface DashboardProps {
