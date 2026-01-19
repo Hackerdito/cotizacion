@@ -22,12 +22,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-4">
-                <div className="h-12 w-auto">
+      <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
+            <div className="flex items-center gap-2 sm:gap-4">
+                {/* Logo responsivo: más pequeño en móvil (h-9) y normal en escritorio (sm:h-12) */}
+                <div className="h-9 sm:h-12 w-auto transition-all">
                     <img 
-                        src="https://fileuk.netlify.app/logotipo.png" 
+                        src="/logotipo.png" 
                         alt="Logo" 
                         className="h-full w-auto object-contain"
                     />
@@ -37,22 +38,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
                     <p className="text-xs text-blue-600 font-semibold tracking-wide mt-0.5">GENERADOR DE COTIZACIONES</p>
                 </div>
             </div>
+            
+            {/* Botón responsivo: padding y texto más pequeño en móvil */}
             <button
                 onClick={onCreate}
-                className="flex items-center bg-[#1e293b] text-white px-5 py-2.5 rounded-full hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl font-medium text-sm group"
+                className="flex items-center bg-[#1e293b] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-full hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl font-medium text-xs sm:text-sm group whitespace-nowrap"
             >
-                <Plus size={18} className="mr-2 group-hover:rotate-90 transition-transform" />
+                <Plus size={16} className="mr-1 sm:mr-2 group-hover:rotate-90 transition-transform" />
                 Nueva Cotización
             </button>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats / Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-end gap-4">
             <div>
-                 <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Mis Cotizaciones</h2>
-                 <p className="text-gray-500 mt-1">
+                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Mis Cotizaciones</h2>
+                 <p className="text-gray-500 mt-1 text-sm sm:text-base">
                     {filteredQuotes.length} {filteredQuotes.length === 1 ? 'documento encontrado' : 'documentos encontrados'}
                  </p>
             </div>
@@ -82,7 +85,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredQuotes.map((quote) => (
-                    <div key={quote.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col h-full">
+                    <div 
+                        key={quote.id} 
+                        onClick={() => onEdit(quote)}
+                        className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col h-full cursor-pointer relative"
+                    >
                         <div className="flex justify-between items-start mb-3">
                             <div className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
                                 {quote.items.length} Conceptos
@@ -112,20 +119,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
                             </div>
                             
                             <div className="flex gap-2">
+                                {/* Botón Editar (Visualmente presente, pero toda la tarjeta funciona) */}
                                 <button 
-                                    onClick={() => onEdit(quote)}
-                                    className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                    className="p-2 rounded-lg text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors"
                                     title="Editar"
                                 >
                                     <Edit2 size={18} />
                                 </button>
+                                
+                                {/* Botón Eliminar: Importante detener la propagación para que no abra el editor */}
                                 <button 
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         if(confirm('¿Estás seguro de eliminar esta cotización?')) {
                                             onDelete(quote.id);
                                         }
                                     }}
-                                    className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                    className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors z-10"
                                     title="Eliminar"
                                 >
                                     <Trash2 size={18} />
