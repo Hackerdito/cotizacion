@@ -11,10 +11,12 @@ const App: React.FC = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasPermissionError, setHasPermissionError] = useState(false);
 
   // Función para cargar datos (se puede llamar varias veces)
-  const loadQuotes = useCallback(async () => {
+  const loadQuotes = useCallback(async (isManual: boolean = false) => {
+    if (isManual) setIsRefreshing(true);
     try {
       const data = await storageService.getQuotes();
       setQuotes(data);
@@ -25,6 +27,7 @@ const App: React.FC = () => {
       }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -114,6 +117,8 @@ const App: React.FC = () => {
           onCreate={handleCreateNew}
           onEdit={handleEdit}
           onDelete={handleDeleteQuote}
+          onRefresh={() => loadQuotes(true)}
+          isRefreshing={isRefreshing}
         />
       ) : (
         <Editor

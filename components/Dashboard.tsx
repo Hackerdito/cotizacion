@@ -1,15 +1,24 @@
 import React from 'react';
 import { Quote } from '../types.ts';
-import { Plus, Edit2, Trash2, FileText, Search, Calendar, User } from 'lucide-react';
+import { Plus, Edit2, Trash2, FileText, Search, Calendar, User, RefreshCw } from 'lucide-react';
 
 interface DashboardProps {
   quotes: Quote[];
   onCreate: () => void;
   onEdit: (quote: Quote) => void;
   onDelete: (id: string) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, onDelete }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  quotes, 
+  onCreate, 
+  onEdit, 
+  onDelete, 
+  onRefresh, 
+  isRefreshing = false 
+}) => {
   const [searchTerm, setSearchTerm] = React.useState('');
 
   const filteredQuotes = quotes.filter((q) => {
@@ -25,7 +34,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
       <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
             <div className="flex items-center gap-2 sm:gap-4">
-                {/* Logo responsivo: más pequeño en móvil (h-9) y normal en escritorio (sm:h-12) */}
                 <div className="h-9 sm:h-12 w-auto transition-all">
                     <img 
                         src="/logotipo.png" 
@@ -39,19 +47,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
                 </div>
             </div>
             
-            {/* Botón responsivo: padding y texto más pequeño en móvil */}
-            <button
-                onClick={onCreate}
-                className="flex items-center bg-[#1e293b] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-full hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl font-medium text-xs sm:text-sm group whitespace-nowrap"
-            >
-                <Plus size={16} className="mr-1 sm:mr-2 group-hover:rotate-90 transition-transform" />
-                Nueva Cotización
-            </button>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    className={`p-2.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50 ${isRefreshing ? 'bg-gray-50' : 'bg-white'}`}
+                    title="Actualizar lista"
+                >
+                    <RefreshCw size={18} className={`${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+                </button>
+                <button
+                    onClick={onCreate}
+                    className="flex items-center bg-[#1e293b] text-white px-3 py-2 sm:px-5 sm:py-2.5 rounded-full hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl font-medium text-xs sm:text-sm group whitespace-nowrap"
+                >
+                    <Plus size={16} className="mr-1 sm:mr-2 group-hover:rotate-90 transition-transform" />
+                    Nueva Cotización
+                </button>
+            </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Stats / Header */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-end gap-4">
             <div>
                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Mis Cotizaciones</h2>
@@ -72,7 +88,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
             </div>
         </div>
 
-        {/* Grid */}
         {filteredQuotes.length === 0 ? (
             <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-300 shadow-sm">
                 <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -119,7 +134,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
                             </div>
                             
                             <div className="flex gap-2">
-                                {/* Botón Editar (Visualmente presente, pero toda la tarjeta funciona) */}
                                 <button 
                                     className="p-2 rounded-lg text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors"
                                     title="Editar"
@@ -127,13 +141,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ quotes, onCreate, onEdit, 
                                     <Edit2 size={18} />
                                 </button>
                                 
-                                {/* Botón Eliminar: Importante detener la propagación para que no abra el editor */}
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if(confirm('¿Estás seguro de eliminar esta cotización?')) {
-                                            onDelete(quote.id);
-                                        }
+                                        onDelete(quote.id);
                                     }}
                                     className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors z-10"
                                     title="Eliminar"
