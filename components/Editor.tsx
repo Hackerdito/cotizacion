@@ -11,8 +11,8 @@ import { EmailModal } from './EmailModal.tsx';
 // CONFIGURACIÓN DE EMAILJS
 const EMAILJS_SERVICE_ID = 'service_xxtiyrk'; 
 const EMAILJS_TEMPLATE_ID = 'template_5p63up8'; 
-// REEMPLAZA ESTO con tu Public Key de EmailJS (Pestaña Account)
-const EMAILJS_PUBLIC_KEY = '4OfEthgeWXqbw40be; 
+// Public Key de EmailJS
+const EMAILJS_PUBLIC_KEY = '4OfEthgeWXqbw40be'; 
 
 interface EditorProps {
   initialQuote?: Quote | null;
@@ -137,11 +137,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
   };
 
   const handleSendEmail = async (emailData: { to: string; subject: string; message: string }) => {
-    if (EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
-        alert("Falta configurar tu Public Key de EmailJS en Editor.tsx");
-        return;
-    }
-
     setIsSendingEmail(true);
     try {
         const pdfData = await getPdfData();
