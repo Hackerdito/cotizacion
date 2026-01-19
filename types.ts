@@ -1,14 +1,16 @@
+
 export interface LineItem {
   id: string;
   description: string;
   price: number;
+  isUnitPrice?: boolean; // New optional field to toggle "C/U" display
 }
 
 export interface Quote {
   id: string;
-  quoteName: string; // New field for project/quote identifier
+  quoteName: string; 
   clientName: string;
-  date: string; // ISO string format YYYY-MM-DD
+  date: string; 
   items: LineItem[];
   createdAt: number;
   updatedAt: number;

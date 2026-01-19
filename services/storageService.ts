@@ -1,14 +1,25 @@
 import { Quote } from '../types.ts';
+import { db } from './firebase.ts';
+import { collection, getDocs, doc, setDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 
-const STORAGE_KEY = 'impresos_uribe_quotes';
-
-// Helper to simulate a delay (optional, makes it feel more "app-like")
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const COLLECTION_NAME = 'quotes';
 
 export const getQuotes = async (): Promise<Quote[]> => {
-  await delay(300); // Simulate network
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+  try {
+    // Fetch quotes ordered by updated time
+    const q = query(collection(db, COLLECTION_NAME));
+    const querySnapshot = await getDocs(q);
+    
+    const quotes: Quote[] = [];
+    querySnapshot.forEach((doc) => {
+      quotes.push(doc.data() as Quote);
+    });
+    
+    return quotes;
+  } catch (error) {
+    console.error("Error getting quotes from Firebase:", error);
+    return [];
+  }
 };
 
 export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
@@ -17,22 +28,26 @@ export const getQuoteById = async (id: string): Promise<Quote | undefined> => {
 };
 
 export const saveQuote = async (quote: Quote): Promise<void> => {
-  await delay(400); // Simulate network
-  const quotes = await getQuotes();
-  const existingIndex = quotes.findIndex((q) => q.id === quote.id);
-
-  if (existingIndex >= 0) {
-    quotes[existingIndex] = { ...quote, updatedAt: Date.now() };
-  } else {
-    quotes.push({ ...quote, createdAt: Date.now(), updatedAt: Date.now() });
+  try {
+    // We use setDoc with merge: true to handle both create and update
+    // using the quote.id as the document ID in Firestore
+    await setDoc(doc(db, COLLECTION_NAME, quote.id), {
+      ...quote,
+      updatedAt: Date.now(),
+      createdAt: quote.createdAt || Date.now()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Error saving quote to Firebase:", error);
+    alert("Hubo un error guardando en la nube. Revisa tu conexión.");
+    throw error;
   }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
 };
 
 export const deleteQuote = async (id: string): Promise<void> => {
-  await delay(300);
-  const quotes = await getQuotes();
-  const filtered = quotes.filter((q) => q.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  try {
+    await deleteDoc(doc(db, COLLECTION_NAME, id));
+  } catch (error) {
+    console.error("Error deleting quote:", error);
+    alert("Error al eliminar.");
+  }
 };

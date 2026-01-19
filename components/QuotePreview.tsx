@@ -97,8 +97,13 @@ export const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ quo
                             <div className="flex-1 px-4">
                                 <p className="text-gray-800 text-sm font-medium leading-relaxed whitespace-pre-wrap">{item.description}</p>
                             </div>
-                            <div className="w-32 text-right font-bold text-gray-700 text-lg">
-                                ${item.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            <div className="w-32 text-right">
+                                <p className="font-bold text-gray-700 text-lg">
+                                    ${item.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                </p>
+                                {item.isUnitPrice && (
+                                    <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded ml-auto w-fit block mt-1">C/U</span>
+                                )}
                             </div>
                         </div>
                     ))}

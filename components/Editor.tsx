@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Quote, LineItem } from '../types.ts';
-import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User, Tag } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -15,10 +15,10 @@ interface EditorProps {
 export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }) => {
   const [quoteName, setQuoteName] = useState('');
   const [clientName, setClientName] = useState('');
-  // Changed default state to empty string as requested
   const [date, setDate] = useState(''); 
   const [items, setItems] = useState<LineItem[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Ref for the hidden preview used for PDF generation
   const printRef = React.useRef<HTMLDivElement>(null);
@@ -31,21 +31,21 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
       setItems(initialQuote.items);
     } else {
       // Default state for new quote
-      setItems([{ id: uuidv4(), description: '', price: 0 }]);
+      setItems([{ id: uuidv4(), description: '', price: 0, isUnitPrice: false }]);
       setClientName('');
       setDate('');
     }
   }, [initialQuote]);
 
   const handleAddItem = () => {
-    setItems([...items, { id: uuidv4(), description: '', price: 0 }]);
+    setItems([...items, { id: uuidv4(), description: '', price: 0, isUnitPrice: false }]);
   };
 
   const handleRemoveItem = (id: string) => {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  const handleItemChange = (id: string, field: keyof LineItem, value: string | number) => {
+  const handleItemChange = (id: string, field: keyof LineItem, value: string | number | boolean) => {
     setItems(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
@@ -54,7 +54,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
     setItems(items.map((item) => (item.id === id ? { ...item, price: numericValue } : item)));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!clientName) {
         alert("Por favor ingresa el nombre del cliente.");
         return;
@@ -64,16 +64,23 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         return;
     }
 
-    const quoteToSave: Quote = {
-      id: initialQuote ? initialQuote.id : uuidv4(),
-      quoteName: quoteName || 'Cotización General',
-      clientName,
-      date,
-      items,
-      createdAt: initialQuote ? initialQuote.createdAt : Date.now(),
-      updatedAt: Date.now(),
-    };
-    onSave(quoteToSave);
+    setIsSaving(true);
+    try {
+        const quoteToSave: Quote = {
+            id: initialQuote ? initialQuote.id : uuidv4(),
+            quoteName: quoteName || 'Cotización General',
+            clientName,
+            date,
+            items,
+            createdAt: initialQuote ? initialQuote.createdAt : Date.now(),
+            updatedAt: Date.now(),
+        };
+        await onSave(quoteToSave);
+    } catch (e) {
+        // Error handled in storageService or parent
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const generatePDF = async () => {
@@ -82,13 +89,11 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
 
     try {
         await document.fonts.ready;
-        
-        // Wait a moment for images to load (specifically the logo)
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const canvas = await html2canvas(printRef.current, {
             scale: 2,
-            useCORS: true, // Essential for loading external images like the logo
+            useCORS: true,
             allowTaint: true,
             logging: false,
             backgroundColor: '#ffffff'
@@ -205,7 +210,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                 <div className="space-y-4">
                     {items.map((item, index) => (
                         <div key={item.id} className="bg-[#334155] p-4 rounded-xl border border-gray-600 relative group shadow-sm">
-                            <div className="absolute top-2 right-2">
+                            <div className="absolute top-2 right-2 flex gap-2">
                                 <button
                                     onClick={() => handleRemoveItem(item.id)}
                                     className="text-gray-400 hover:text-red-400 p-2 transition-colors"
@@ -224,18 +229,36 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                                     rows={2}
                                 />
                             </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Precio Unitario</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-gray-400 font-bold">$</span>
-                                    {/* Changed to type="number" but controlled string value to allow empty state */}
-                                    <input
-                                        type="number"
-                                        value={item.price === 0 ? '' : item.price}
-                                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                        placeholder="0.00"
-                                        className="w-full pl-8 pr-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg"
-                                    />
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Precio</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-2.5 text-gray-400 font-bold">$</span>
+                                        <input
+                                            type="number"
+                                            value={item.price === 0 ? '' : item.price}
+                                            onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                                            placeholder="0.00"
+                                            className="w-full pl-8 pr-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-end mb-2">
+                                     <label className="flex items-center space-x-2 cursor-pointer select-none group">
+                                        <div className="relative">
+                                            <input 
+                                                type="checkbox" 
+                                                className="sr-only" 
+                                                checked={item.isUnitPrice || false}
+                                                onChange={(e) => handleItemChange(item.id, 'isUnitPrice', e.target.checked)}
+                                            />
+                                            <div className={`w-10 h-6 rounded-full transition-colors ${item.isUnitPrice ? 'bg-blue-600' : 'bg-gray-600'}`}></div>
+                                            <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform ${item.isUnitPrice ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                        </div>
+                                        <span className={`text-sm font-medium ${item.isUnitPrice ? 'text-blue-400' : 'text-gray-400'}`}>
+                                            {item.isUnitPrice ? 'C/U' : 'Total'}
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -248,10 +271,17 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         <div className="p-6 border-t border-gray-700 bg-[#0f172a] flex gap-3">
              <button
                 onClick={handleSave}
-                className="flex-1 flex justify-center items-center bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 font-bold tracking-wide"
+                disabled={isSaving}
+                className="flex-1 flex justify-center items-center bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 font-bold tracking-wide disabled:opacity-50"
             >
-                <Save size={18} className="mr-2" />
-                GUARDAR
+                {isSaving ? (
+                    <span className="animate-pulse">GUARDANDO...</span>
+                ) : (
+                    <>
+                        <Save size={18} className="mr-2" />
+                        GUARDAR
+                    </>
+                )}
             </button>
             <button
                 onClick={generatePDF}
