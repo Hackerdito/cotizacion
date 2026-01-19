@@ -12,7 +12,7 @@ import { EmailModal } from './EmailModal.tsx';
 const EMAILJS_SERVICE_ID = 'service_xxtiyrk'; 
 const EMAILJS_TEMPLATE_ID = 'template_5p63up8'; 
 // REEMPLAZA ESTO con tu Public Key de EmailJS (Pestaña Account)
-const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY'; 
+const EMAILJS_PUBLIC_KEY = '4OfEthgeWXqbw40be; 
 
 interface EditorProps {
   initialQuote?: Quote | null;
