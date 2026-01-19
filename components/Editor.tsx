@@ -1,18 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Quote, LineItem } from '../types.ts';
-import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User, Mail } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User, Mail, Share2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import emailjs from '@emailjs/browser';
 import { QuotePreview } from './QuotePreview.tsx';
-import { EmailModal } from './EmailModal.tsx';
-
-// CONFIGURACIÓN DE EMAILJS
-const EMAILJS_SERVICE_ID = 'service_xxtiyrk'; 
-const EMAILJS_TEMPLATE_ID = 'template_5p63up8'; 
-// Public Key de EmailJS
-const EMAILJS_PUBLIC_KEY = '4OfEthgeWXqbw40be'; 
 
 interface EditorProps {
   initialQuote?: Quote | null;
@@ -27,9 +19,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
   const [items, setItems] = useState<LineItem[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
@@ -69,11 +59,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         alert("Por favor ingresa el nombre del cliente.");
         return;
     }
-    if (!date) {
-        alert("Por favor selecciona una fecha.");
-        return;
-    }
-
     setIsSaving(true);
     try {
         const quoteToSave: Quote = {
@@ -93,115 +78,85 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
     }
   };
 
-  // Función optimizada para generar PDF ligero
-  const getPdfData = async (isForEmail = false) => {
+  // Generación de PDF (Alta Calidad)
+  const getPdfFile = async () => {
     if (!printRef.current) return null;
-    
-    // Esperar a que las fuentes y recursos carguen
     await document.fonts.ready;
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Si es para email, bajamos drásticamente la resolución
-    const captureScale = isForEmail ? 1.0 : 1.5; 
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     const canvas = await html2canvas(printRef.current, {
-        scale: captureScale,
+        scale: 2, // Mejor calidad para impresión
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false
+        backgroundColor: '#ffffff'
     });
     
-    // Si es para email usamos JPEG con calidad media para entrar en los 50KB
-    const imgData = isForEmail 
-        ? canvas.toDataURL('image/jpeg', 0.5) 
-        : canvas.toDataURL('image/png');
-        
-    const pdf = new jsPDF({ 
-        orientation: 'portrait', 
-        unit: 'mm', 
-        format: 'a4',
-        compress: true // Activar compresión interna
-    });
-    
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const imgProps = pdf.getImageProperties(imgData);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
     
-    // Usar formato compatible con compresión
-    const format = isForEmail ? 'JPEG' : 'PNG';
-    pdf.addImage(imgData, format, 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+    const blob = pdf.output('blob');
+    const fileName = quoteName ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`;
     
-    const outputBase64 = pdf.output('datauristring').split(',')[1];
-    
-    // Debug de tamaño en consola
-    const sizeInKb = (outputBase64.length * 0.75) / 1024;
-    console.log(`Tamaño estimado del PDF: ${sizeInKb.toFixed(2)} KB`);
-
-    return {
-        blob: pdf.output('blob'),
-        base64: outputBase64,
-        fileName: quoteName ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`,
-        sizeInKb
-    };
+    return new File([blob], fileName, { type: 'application/pdf' });
   };
 
-  const generatePDF = async () => {
+  const handleDownload = async () => {
     setIsGeneratingPdf(true);
     try {
-        const pdfData = await getPdfData(false); // Alta calidad para descarga
-        if (pdfData) {
-            const url = URL.createObjectURL(pdfData.blob);
+        const file = await getPdfFile();
+        if (file) {
+            const url = URL.createObjectURL(file);
             const link = document.createElement('a');
             link.href = url;
-            link.download = pdfData.fileName;
+            link.download = file.name;
             link.click();
             URL.revokeObjectURL(url);
         }
     } catch (error) {
-        alert("Hubo un error generando el PDF.");
+        alert("Error generando PDF.");
     } finally {
         setIsGeneratingPdf(false);
     }
   };
 
-  const handleSendEmail = async (emailData: { to: string; subject: string; message: string }) => {
-    setIsSendingEmail(true);
+  // NUEVA FUNCIÓN: COMPARTIR NATIVO (Abre Mail/Outlook/WhatsApp con el PDF adjunto)
+  const handleNativeShare = async () => {
+    if (!clientName) {
+        alert("Primero ingresa el nombre del cliente.");
+        return;
+    }
+
+    setIsSharing(true);
     try {
-        const pdfData = await getPdfData(true); // Calidad ultra-ligera para EmailJS
-        if (!pdfData) throw new Error("No se pudo generar el PDF");
+        const file = await getPdfFile();
+        if (!file) return;
 
-        if (pdfData.sizeInKb > 48) {
-             console.warn("El PDF sigue siendo algo grande para EmailJS gratuito.");
-        }
-
-        const templateParams = {
-            to_email: emailData.to,
-            subject: emailData.subject,
-            message: emailData.message,
-            name: clientName,
-            title: quoteName,
-            content: pdfData.base64 // Esta variable no debe pesar más de 50KB total con las otras
-        };
-
-        await emailjs.send(
-            EMAILJS_SERVICE_ID,
-            EMAILJS_TEMPLATE_ID,
-            templateParams,
-            EMAILJS_PUBLIC_KEY
-        );
-
-        alert(`¡Cotización enviada con éxito a ${emailData.to}!`);
-        setIsEmailModalOpen(false);
-    } catch (error: any) {
-        console.error("EmailJS Error:", error);
-        if (error?.status === 413) {
-            alert("Error: El archivo es demasiado grande para el plan gratuito de EmailJS. Intenta descargar el PDF y enviarlo manualmente o reduce el texto de la cotización.");
+        // Verificar si el navegador soporta compartir archivos (iOS, Mac Safari, Android)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: `Cotización: ${quoteName || clientName}`,
+                text: `Hola, adjunto envío la cotización para ${quoteName || clientName}.`,
+            });
         } else {
-            alert(`Error al enviar: ${error?.text || 'Error de conexión o configuración'}`);
+            // Fallback para navegadores de escritorio que no soportan compartir archivos (Chrome Windows)
+            const confirmDownload = confirm("Tu navegador no soporta el envío directo. ¿Deseas descargar el PDF para adjuntarlo manualmente?");
+            if (confirmDownload) {
+                handleDownload();
+            }
+        }
+    } catch (error: any) {
+        // Ignorar si el usuario canceló el menú de compartir
+        if (error.name !== 'AbortError') {
+            console.error("Error sharing:", error);
+            alert("No se pudo abrir el menú de compartir.");
         }
     } finally {
-        setIsSendingEmail(false);
+        setIsSharing(false);
     }
   };
 
@@ -256,8 +211,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark] appearance-none"
-                            style={{ WebkitAppearance: 'none' }}
+                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
                         />
                     </div>
                     <div>
@@ -268,8 +222,8 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                             type="text"
                             value={clientName}
                             onChange={(e) => setClientName(e.target.value)}
-                            placeholder="Ejemplo: Diana" 
-                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
+                            placeholder="Nombre del cliente" 
+                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
                         />
                     </div>
                 </div>
@@ -352,22 +306,24 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
              <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex-[1.5] flex justify-center items-center bg-blue-600 text-white px-3 py-4 rounded-xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/20 font-black text-xs tracking-widest disabled:opacity-50 active:scale-95"
+                className="flex-[1.5] flex justify-center items-center bg-blue-600 text-white px-3 py-4 rounded-xl hover:bg-blue-500 transition-all shadow-xl font-black text-xs tracking-widest disabled:opacity-50 active:scale-95"
             >
                 {isSaving ? "..." : "GUARDAR"}
             </button>
             <button
-                onClick={generatePDF}
+                onClick={handleDownload}
                 disabled={isGeneratingPdf}
                 className="flex-1 flex justify-center items-center bg-white text-gray-900 px-3 py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg font-black text-xs tracking-widest disabled:opacity-50 active:scale-95"
             >
                 {isGeneratingPdf ? "..." : "PDF"}
             </button>
             <button
-                onClick={() => setIsEmailModalOpen(true)}
-                className="flex-1 flex justify-center items-center bg-[#f97316] text-white px-3 py-4 rounded-xl hover:bg-[#ea580c] transition-colors shadow-lg font-black text-xs tracking-widest active:scale-95"
+                onClick={handleNativeShare}
+                disabled={isSharing}
+                className="flex-1 flex justify-center items-center bg-[#f97316] text-white px-3 py-4 rounded-xl hover:bg-[#ea580c] transition-colors shadow-lg font-black text-xs tracking-widest active:scale-95 disabled:opacity-50"
+                title="Compartir Cotización"
             >
-                <Mail size={18} />
+                {isSharing ? <span className="animate-spin text-lg">◌</span> : <Share2 size={20} />}
             </button>
         </div>
       </div>
@@ -377,14 +333,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
             <QuotePreview quote={currentQuoteData} />
         </div>
       </div>
-
-      <EmailModal 
-        isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        onSend={handleSendEmail}
-        defaultSubject={`Cotización - ${quoteName || clientName}`}
-        isSending={isSendingEmail}
-      />
 
       <div className="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
          <div className="w-[800px]">
