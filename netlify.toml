@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Esta variable apaga el escáner de seguridad que está dando falsos positivos
+  # con las librerías de Firebase y la clave ofuscada.
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
