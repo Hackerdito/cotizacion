@@ -93,34 +93,63 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
     }
   };
 
-  const getPdfData = async () => {
+  // Función optimizada para generar PDF ligero
+  const getPdfData = async (isForEmail = false) => {
     if (!printRef.current) return null;
+    
+    // Esperar a que las fuentes y recursos carguen
     await document.fonts.ready;
     await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Si es para email, bajamos drásticamente la resolución
+    const captureScale = isForEmail ? 1.0 : 1.5; 
+    
     const canvas = await html2canvas(printRef.current, {
-        scale: 2,
+        scale: captureScale,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false
     });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    
+    // Si es para email usamos JPEG con calidad media para entrar en los 50KB
+    const imgData = isForEmail 
+        ? canvas.toDataURL('image/jpeg', 0.5) 
+        : canvas.toDataURL('image/png');
+        
+    const pdf = new jsPDF({ 
+        orientation: 'portrait', 
+        unit: 'mm', 
+        format: 'a4',
+        compress: true // Activar compresión interna
+    });
+    
     const imgProps = pdf.getImageProperties(imgData);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
     
+    // Usar formato compatible con compresión
+    const format = isForEmail ? 'JPEG' : 'PNG';
+    pdf.addImage(imgData, format, 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+    
+    const outputBase64 = pdf.output('datauristring').split(',')[1];
+    
+    // Debug de tamaño en consola
+    const sizeInKb = (outputBase64.length * 0.75) / 1024;
+    console.log(`Tamaño estimado del PDF: ${sizeInKb.toFixed(2)} KB`);
+
     return {
         blob: pdf.output('blob'),
-        base64: pdf.output('datauristring').split(',')[1],
-        fileName: quoteName ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`
+        base64: outputBase64,
+        fileName: quoteName ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`,
+        sizeInKb
     };
   };
 
   const generatePDF = async () => {
     setIsGeneratingPdf(true);
     try {
-        const pdfData = await getPdfData();
+        const pdfData = await getPdfData(false); // Alta calidad para descarga
         if (pdfData) {
             const url = URL.createObjectURL(pdfData.blob);
             const link = document.createElement('a');
@@ -139,8 +168,12 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
   const handleSendEmail = async (emailData: { to: string; subject: string; message: string }) => {
     setIsSendingEmail(true);
     try {
-        const pdfData = await getPdfData();
+        const pdfData = await getPdfData(true); // Calidad ultra-ligera para EmailJS
         if (!pdfData) throw new Error("No se pudo generar el PDF");
+
+        if (pdfData.sizeInKb > 48) {
+             console.warn("El PDF sigue siendo algo grande para EmailJS gratuito.");
+        }
 
         const templateParams = {
             to_email: emailData.to,
@@ -148,7 +181,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
             message: emailData.message,
             name: clientName,
             title: quoteName,
-            content: pdfData.base64
+            content: pdfData.base64 // Esta variable no debe pesar más de 50KB total con las otras
         };
 
         await emailjs.send(
@@ -162,7 +195,11 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         setIsEmailModalOpen(false);
     } catch (error: any) {
         console.error("EmailJS Error:", error);
-        alert(`Error al enviar: ${error?.text || 'Error de conexión o configuración'}`);
+        if (error?.status === 413) {
+            alert("Error: El archivo es demasiado grande para el plan gratuito de EmailJS. Intenta descargar el PDF y enviarlo manualmente o reduce el texto de la cotización.");
+        } else {
+            alert(`Error al enviar: ${error?.text || 'Error de conexión o configuración'}`);
+        }
     } finally {
         setIsSendingEmail(false);
     }
