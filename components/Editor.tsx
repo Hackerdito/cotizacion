@@ -3,7 +3,7 @@ import { Quote, LineItem } from '../types.ts';
 import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User, Tag } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import { QuotePreview } from './QuotePreview.tsx';
 
 interface EditorProps {
@@ -140,9 +140,13 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
     <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-gray-100">
       {/* Left Side: Form Controls - Dark Theme for Contrast */}
       <div className="w-full lg:w-1/3 bg-[#1e293b] border-r border-gray-700 flex flex-col h-full shadow-2xl z-20 text-white">
-        <div className="p-6 border-b border-gray-700 bg-[#0f172a]">
-            <button onClick={onCancel} className="flex items-center text-gray-400 hover:text-white mb-4 transition-colors">
-                <ArrowLeft size={16} className="mr-1" /> Volver al Tablero
+        <div className="p-6 border-b border-gray-700 bg-[#0f172a] flex flex-col">
+            <button 
+                onClick={onCancel} 
+                className="mt-[50px] mb-6 inline-flex items-center self-start bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg active:scale-95 group"
+            >
+                <ArrowLeft size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> 
+                VOLVER AL INICIO
             </button>
             <h2 className="text-2xl font-bold text-white mb-1">
                 {initialQuote ? 'Editar Cotización' : 'Nueva Cotización'}
@@ -166,7 +170,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                      <div>
                         <label className="flex items-center text-sm font-medium text-blue-300 mb-2">
                             <Calendar size={14} className="mr-2"/> Fecha
@@ -175,6 +179,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
+                            placeholder="DD/MM/AAAA"
                             className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
                         />
                     </div>
@@ -186,7 +191,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                             type="text"
                             value={clientName}
                             onChange={(e) => setClientName(e.target.value)}
-                            placeholder="" 
+                            placeholder="Ejemplo: Diana" 
                             className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
