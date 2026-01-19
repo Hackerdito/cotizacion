@@ -43,23 +43,20 @@
         print-color-adjust: exact;
       }
       
-      /* Normalización para iPhone (iOS) */
       input[type="date"] {
         position: relative;
         -webkit-appearance: none;
         appearance: none;
-        min-height: 3rem; /* Equivalente a py-3 */
+        min-height: 3rem;
         display: flex;
         align-items: center;
       }
 
-      /* Invertir el icono de calendario en modo oscuro para iOS */
       input[type="date"]::-webkit-calendar-picker-indicator {
         filter: invert(1);
         opacity: 0.6;
       }
 
-      /* Quitar estilos internos de iOS que rompen el layout */
       input[type="date"]::-webkit-inner-spin-button,
       input[type="date"]::-webkit-clear-button {
         display: none;
@@ -80,7 +77,6 @@
         background: #475569; 
       }
 
-      /* Padding para la Isla Dinámica y el Home Indicator */
       .safe-top {
         padding-top: env(safe-area-inset-top);
       }
@@ -100,7 +96,8 @@
     "jspdf": "https://esm.sh/jspdf@^4.0.0",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "firebase/": "https://esm.sh/firebase@^12.8.0/"
+    "firebase/": "https://esm.sh/firebase@^12.8.0/",
+    "@emailjs/browser": "https://esm.sh/@emailjs/browser@^4.4.1"
   }
 }
 </script>

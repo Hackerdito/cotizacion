@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Quote, LineItem } from '../types.ts';
-import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User, Tag } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, Download, FileType, Calendar, User, Mail } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import emailjs from '@emailjs/browser';
 import { QuotePreview } from './QuotePreview.tsx';
+import { EmailModal } from './EmailModal.tsx';
+
+// CONFIGURACIÓN DE EMAILJS
+const EMAILJS_SERVICE_ID = 'service_xxtiyrk'; 
+const EMAILJS_TEMPLATE_ID = 'template_5p63up8'; 
+const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY'; // BUSCA ESTO en EmailJS -> Account -> Public Key
 
 interface EditorProps {
   initialQuote?: Quote | null;
@@ -19,6 +26,9 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
   const [items, setItems] = useState<LineItem[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
@@ -31,7 +41,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
     } else {
       setItems([{ id: uuidv4(), description: '', price: 0, isUnitPrice: false }]);
       setClientName('');
-      // Auto-set today's date in YYYY-MM-DD format for the input
       const today = new Date().toISOString().split('T')[0];
       setDate(today);
     }
@@ -83,42 +92,84 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
     }
   };
 
+  const getPdfData = async () => {
+    if (!printRef.current) return null;
+    await document.fonts.ready;
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+    });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    
+    return {
+        blob: pdf.output('blob'),
+        base64: pdf.output('datauristring').split(',')[1],
+        fileName: quoteName ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`
+    };
+  };
+
   const generatePDF = async () => {
-    if (!printRef.current) return;
     setIsGeneratingPdf(true);
-
     try {
-        await document.fonts.ready;
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const canvas = await html2canvas(printRef.current, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            backgroundColor: '#ffffff'
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
-
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        const fileName = quoteName 
-            ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` 
-            : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`;
-        pdf.save(fileName);
+        const pdfData = await getPdfData();
+        if (pdfData) {
+            const url = URL.createObjectURL(pdfData.blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = pdfData.fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
     } catch (error) {
         alert("Hubo un error generando el PDF.");
     } finally {
         setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleSendEmail = async (emailData: { to: string; subject: string; message: string }) => {
+    if (EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
+        alert("¡Casi listo! Solo te falta pegar tu 'Public Key' en el código (la encuentras en EmailJS -> Account).");
+        return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+        const pdfData = await getPdfData();
+        if (!pdfData) throw new Error("No se pudo generar el PDF");
+
+        // Estos nombres deben coincidir con las {{llaves}} de tu plantilla en EmailJS
+        const templateParams = {
+            to_email: emailData.to,      // Usar {{to_email}} en el campo "To Email" de EmailJS
+            subject: emailData.subject,  // Usar {{subject}} en el campo "Subject" de EmailJS
+            message: emailData.message,  // Usar {{message}} en el contenido
+            name: clientName,            // Usar {{name}}
+            title: quoteName,            // Usar {{title}}
+            content: pdfData.base64      // Usar {{content}} para el adjunto
+        };
+
+        await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams,
+            EMAILJS_PUBLIC_KEY
+        );
+
+        alert(`¡Cotización enviada con éxito a ${emailData.to}!`);
+        setIsEmailModalOpen(false);
+    } catch (error: any) {
+        console.error("EmailJS Error:", error);
+        alert(`Error al enviar: ${error?.text || 'Revisa tu Public Key o conexión'}`);
+    } finally {
+        setIsSendingEmail(false);
     }
   };
 
@@ -134,9 +185,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
 
   return (
     <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-gray-100">
-      {/* Sidebar: Inputs */}
       <div className="w-full lg:w-1/3 bg-[#1e293b] border-r border-gray-700 flex flex-col h-full shadow-2xl z-20 text-white">
-        {/* Header con soporte Safe Area para Notch */}
         <div className="px-6 pb-6 border-b border-gray-700 bg-[#0f172a] flex flex-col safe-top">
             <button 
                 onClick={onCancel} 
@@ -171,7 +220,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                         <label className="flex items-center text-sm font-semibold text-blue-300 mb-2">
                             <Calendar size={14} className="mr-2"/> FECHA
                         </label>
-                        {/* Input de fecha optimizado para iOS */}
                         <input
                             type="date"
                             value={date}
@@ -209,7 +257,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                 </div>
                 
                 <div className="space-y-4">
-                    {items.map((item, index) => (
+                    {items.map((item) => (
                         <div key={item.id} className="bg-[#334155] p-4 rounded-2xl border border-gray-600 relative group shadow-lg">
                             <div className="absolute top-2 right-2">
                                 <button
@@ -268,33 +316,44 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
             </div>
         </div>
 
-        {/* Action Buttons: Safe Area para Home Indicator en iPhone */}
-        <div className="p-6 border-t border-gray-700 bg-[#0f172a] flex gap-3 safe-bottom">
+        <div className="p-6 border-t border-gray-700 bg-[#0f172a] flex gap-2 safe-bottom">
              <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex-1 flex justify-center items-center bg-blue-600 text-white px-4 py-4 rounded-xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/20 font-black tracking-widest disabled:opacity-50 active:scale-95"
+                className="flex-[1.5] flex justify-center items-center bg-blue-600 text-white px-3 py-4 rounded-xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/20 font-black text-xs tracking-widest disabled:opacity-50 active:scale-95"
             >
-                {isSaving ? "ESPERA..." : "GUARDAR"}
+                {isSaving ? "..." : "GUARDAR"}
             </button>
             <button
                 onClick={generatePDF}
                 disabled={isGeneratingPdf}
-                className="flex-1 flex justify-center items-center bg-white text-gray-900 px-4 py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg font-black tracking-widest disabled:opacity-50 active:scale-95"
+                className="flex-1 flex justify-center items-center bg-white text-gray-900 px-3 py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg font-black text-xs tracking-widest disabled:opacity-50 active:scale-95"
             >
                 {isGeneratingPdf ? "..." : "PDF"}
+            </button>
+            <button
+                onClick={() => setIsEmailModalOpen(true)}
+                className="flex-1 flex justify-center items-center bg-[#f97316] text-white px-3 py-4 rounded-xl hover:bg-[#ea580c] transition-colors shadow-lg font-black text-xs tracking-widest active:scale-95"
+            >
+                <Mail size={18} />
             </button>
         </div>
       </div>
 
-      {/* Preview Section */}
       <div className="hidden lg:flex flex-1 bg-gray-200 justify-center items-start overflow-y-auto p-8">
         <div className="transform scale-[0.6] origin-top shadow-2xl">
             <QuotePreview quote={currentQuoteData} />
         </div>
       </div>
 
-      {/* Hidden for PDF */}
+      <EmailModal 
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        onSend={handleSendEmail}
+        defaultSubject={`Cotización - ${quoteName || clientName}`}
+        isSending={isSendingEmail}
+      />
+
       <div className="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
          <div className="w-[800px]">
              <QuotePreview ref={printRef} quote={currentQuoteData} />
