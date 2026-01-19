@@ -1,29 +1,20 @@
 import { Quote } from '../types.ts';
 import { db } from './firebase.ts';
-import { collection, doc, setDoc, deleteDoc, query, onSnapshot } from "firebase/firestore";
+import { collection, doc, setDoc, deleteDoc, query, getDocs, orderBy } from "firebase/firestore";
 
 const COLLECTION_NAME = 'quotes';
 
 /**
- * Suscribe a los cambios en la colección de cotizaciones en tiempo real.
+ * Obtiene todas las cotizaciones de la base de datos una sola vez.
  */
-export const subscribeToQuotes = (callback: (quotes: Quote[]) => void) => {
-  // Quitamos orderBy de la consulta de Firestore para evitar que se oculten 
-  // cotizaciones que no tengan el campo 'updatedAt' o problemas de índices.
-  const q = query(collection(db, COLLECTION_NAME));
-  
-  return onSnapshot(q, (querySnapshot) => {
+export const getQuotes = async (): Promise<Quote[]> => {
+  try {
+    const q = query(collection(db, COLLECTION_NAME), orderBy("updatedAt", "desc"));
+    const querySnapshot = await getDocs(q);
     const quotes: Quote[] = [];
     
-    if (querySnapshot.empty) {
-      console.log("No hay documentos en la colección 'quotes'");
-      callback([]);
-      return;
-    }
-
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      // Nos aseguramos de que el ID del documento sea el correcto
       quotes.push({
         ...data,
         id: docSnap.id,
@@ -32,39 +23,30 @@ export const subscribeToQuotes = (callback: (quotes: Quote[]) => void) => {
       } as Quote);
     });
     
-    // Ordenamos en memoria: las más recientes primero
-    const sortedQuotes = quotes.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    
-    console.log(`Sincronizadas ${sortedQuotes.length} cotizaciones.`);
-    callback(sortedQuotes);
-  }, (error) => {
-    console.error("ERROR CRÍTICO FIREBASE:", error.code, error.message);
-    // Si hay un error de permisos o de red, lo avisamos
-    if (error.code === 'permission-denied') {
-      console.error("Revisa las reglas de seguridad de tu base de datos Firebase.");
-    }
-  });
+    return quotes;
+  } catch (error: any) {
+    console.error("Error al obtener cotizaciones:", error);
+    throw error;
+  }
 };
 
 export const saveQuote = async (quote: Quote): Promise<void> => {
   try {
-    const quoteId = quote.id;
-    if (!quoteId) throw new Error("ID de cotización no válido");
-
-    const docRef = doc(db, COLLECTION_NAME, quoteId);
-    
-    // Forzamos los timestamps para que siempre existan
-    const dataToSave = {
+    if (!quote.id) throw new Error("ID no válido");
+    const docRef = doc(db, COLLECTION_NAME, quote.id);
+    await setDoc(docRef, {
       ...quote,
       updatedAt: Date.now(),
       createdAt: quote.createdAt || Date.now()
-    };
-
-    await setDoc(docRef, dataToSave, { merge: true });
-    console.log("Cotización guardada exitosamente:", quoteId);
-  } catch (error) {
-    console.error("Error al guardar en Firebase:", error);
-    alert("Error al guardar: verifica tu conexión a internet.");
+    }, { merge: true });
+    console.log("Guardado exitoso:", quote.id);
+  } catch (error: any) {
+    console.error("Error al guardar:", error.code);
+    if (error.code === 'permission-denied') {
+      alert("No tienes permisos para escribir en la base de datos. Revisa las reglas de seguridad en Firebase.");
+    } else {
+      alert("Error al guardar la cotización.");
+    }
     throw error;
   }
 };
@@ -72,8 +54,8 @@ export const saveQuote = async (quote: Quote): Promise<void> => {
 export const deleteQuote = async (id: string): Promise<void> => {
   try {
     await deleteDoc(doc(db, COLLECTION_NAME, id));
-    console.log("Cotización eliminada:", id);
   } catch (error) {
-    console.error("Error al eliminar de Firebase:", error);
+    console.error("Error al eliminar:", error);
+    throw error;
   }
 };
