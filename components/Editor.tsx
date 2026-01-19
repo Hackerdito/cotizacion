@@ -11,7 +11,8 @@ import { EmailModal } from './EmailModal.tsx';
 // CONFIGURACIÓN DE EMAILJS
 const EMAILJS_SERVICE_ID = 'service_xxtiyrk'; 
 const EMAILJS_TEMPLATE_ID = 'template_5p63up8'; 
-const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY'; // BUSCA ESTO en EmailJS -> Account -> Public Key
+// REEMPLAZA ESTO con tu Public Key de EmailJS (Pestaña Account)
+const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY'; 
 
 interface EditorProps {
   initialQuote?: Quote | null;
@@ -137,7 +138,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
 
   const handleSendEmail = async (emailData: { to: string; subject: string; message: string }) => {
     if (EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
-        alert("¡Casi listo! Solo te falta pegar tu 'Public Key' en el código (la encuentras en EmailJS -> Account).");
+        alert("Falta configurar tu Public Key de EmailJS en Editor.tsx");
         return;
     }
 
@@ -146,14 +147,13 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         const pdfData = await getPdfData();
         if (!pdfData) throw new Error("No se pudo generar el PDF");
 
-        // Estos nombres deben coincidir con las {{llaves}} de tu plantilla en EmailJS
         const templateParams = {
-            to_email: emailData.to,      // Usar {{to_email}} en el campo "To Email" de EmailJS
-            subject: emailData.subject,  // Usar {{subject}} en el campo "Subject" de EmailJS
-            message: emailData.message,  // Usar {{message}} en el contenido
-            name: clientName,            // Usar {{name}}
-            title: quoteName,            // Usar {{title}}
-            content: pdfData.base64      // Usar {{content}} para el adjunto
+            to_email: emailData.to,
+            subject: emailData.subject,
+            message: emailData.message,
+            name: clientName,
+            title: quoteName,
+            content: pdfData.base64
         };
 
         await emailjs.send(
@@ -167,7 +167,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         setIsEmailModalOpen(false);
     } catch (error: any) {
         console.error("EmailJS Error:", error);
-        alert(`Error al enviar: ${error?.text || 'Revisa tu Public Key o conexión'}`);
+        alert(`Error al enviar: ${error?.text || 'Error de conexión o configuración'}`);
     } finally {
         setIsSendingEmail(false);
     }
