@@ -12,32 +12,34 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
     const init = async () => {
       try {
-        // Intentar autenticación anónima
         await signInAnonymously(auth);
         console.log("Autenticado en Firebase");
+        
+        // SUSCRIPCIÓN EN TIEMPO REAL
+        // Esto reemplaza la carga manual. Cada vez que Firebase cambie, 
+        // el estado 'quotes' se actualizará solo.
+        unsubscribe = storageService.subscribeToQuotes((data) => {
+          setQuotes(data);
+          setIsLoading(false);
+        });
+
       } catch (error: any) {
-        // Si falla por restricción (admin-restricted-operation), no bloqueamos la app
-        console.warn("Firebase Auth restringido o deshabilitado. Se intentará continuar sin auth.", error.code);
-      } finally {
-        // En cualquier caso, intentamos cargar los datos
-        await loadQuotes();
+        console.warn("Firebase Auth error", error.code);
+        setIsLoading(false);
       }
     };
-    init();
-  }, []);
 
-  const loadQuotes = async () => {
-    try {
-        const data = await storageService.getQuotes();
-        setQuotes(data);
-    } catch (e) {
-        console.error("No se pudieron cargar las cotizaciones:", e);
-    } finally {
-        setIsLoading(false);
-    }
-  };
+    init();
+
+    // Limpieza: Cerramos la conexión cuando el componente se destruye
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   const handleCreateNew = () => {
     setCurrentQuote(null);
@@ -51,17 +53,18 @@ const App: React.FC = () => {
 
   const handleSaveQuote = async (quote: Quote) => {
     try {
+        // Al guardar, el listener de useEffect detectará el cambio automáticamente
+        // y actualizará la lista en el Dashboard sin que hagamos nada más.
         await storageService.saveQuote(quote);
-        await loadQuotes();
         setView('dashboard');
     } catch (e) {
-        alert("Error al guardar. Verifica que el inicio de sesión anónimo esté activo en tu consola Firebase.");
+        alert("Error al guardar.");
     }
   };
 
   const handleDeleteQuote = async (id: string) => {
+    // Al borrar, desaparecerá de todas las pantallas conectadas al instante
     await storageService.deleteQuote(id);
-    await loadQuotes();
   };
 
   const handleCancelEdit = () => {
@@ -73,7 +76,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0f172a] text-white">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mb-4"></div>
-        <p className="text-sm font-bold tracking-widest animate-pulse">CARGANDO...</p>
+        <p className="text-sm font-bold tracking-widest animate-pulse">SINCRONIZANDO NUBE...</p>
       </div>
     );
   }
