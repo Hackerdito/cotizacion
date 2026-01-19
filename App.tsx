@@ -3,6 +3,7 @@ import { Dashboard } from './components/Dashboard.tsx';
 import { Editor } from './components/Editor.tsx';
 import { Quote } from './types.ts';
 import * as storageService from './services/storageService.ts';
+import { auth, signInAnonymously } from './services/firebase.ts';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'editor'>('dashboard');
@@ -10,13 +11,25 @@ const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load quotes on mount
+  // Load quotes on mount after authentication
   useEffect(() => {
-    loadQuotes();
+    const init = async () => {
+      try {
+        // Autenticación anónima para tener permisos de lectura/escritura
+        await signInAnonymously(auth);
+        console.log("Autenticado en Firebase");
+        await loadQuotes();
+      } catch (error) {
+        console.error("Error de inicialización/autenticación:", error);
+        // Intentamos cargar de todas formas por si las reglas son públicas
+        await loadQuotes(); 
+      }
+    };
+    init();
   }, []);
 
   const loadQuotes = async () => {
-    setIsLoading(true);
+    // No ponemos setIsLoading(true) aquí para evitar parpadeos si ya estaba cargando
     const data = await storageService.getQuotes();
     setQuotes(data);
     setIsLoading(false);

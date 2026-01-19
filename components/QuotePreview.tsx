@@ -31,11 +31,19 @@ export const QuotePreview = forwardRef<HTMLDivElement, QuotePreviewProps>(({ quo
       {/* Clean Header with Logo */}
       <div className="bg-white px-12 pt-12 pb-4 flex flex-col items-center border-b border-gray-100">
         <div className="mb-6">
+            {/* 
+               NOTA: Para evitar errores de CORS al generar PDF, usa una imagen local.
+               Asegúrate de colocar tu archivo 'logotipo.png' en la carpeta 'public' de tu proyecto.
+            */}
             <img 
-                src="https://fileuk.netlify.app/logotipo.png" 
+                src="/logotipo.png" 
                 alt="Impresos Uribe Logo" 
                 className="h-32 object-contain"
-                crossOrigin="anonymous" // Important for html2canvas
+                onError={(e) => {
+                    // Fallback visual si la imagen no carga
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = '<div class="h-32 flex items-center justify-center text-gray-400 font-bold border-2 border-dashed border-gray-300 w-64">LOGOTIPO</div>';
+                }}
             />
         </div>
         

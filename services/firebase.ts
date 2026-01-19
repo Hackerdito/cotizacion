@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import * as firebaseAuth from "firebase/auth";
 
 // SEGURIDAD AVANZADA:
 // 1. Usamos Base64 para ocultar la cadena original.
@@ -25,3 +26,8 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore (Database)
 export const db = getFirestore(app);
+
+// Initialize Auth
+// Using namespace import to workaround potential "no exported member" errors in some TS environments
+export const auth = firebaseAuth.getAuth(app);
+export const signInAnonymously = firebaseAuth.signInAnonymously;
