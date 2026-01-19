@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Cotizaciones</title>
     
     <!-- iOS Home Screen Meta Tags -->
@@ -13,7 +13,7 @@
     <!-- Apple Touch Icon (Printer on Blue Background) -->
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%231e40af'/%3E%3Cpath fill='white' d='M128 0h256v128H128zm-32 160c-17.7 0-32 14.3-32 32v160c0 17.7 14.3 32 32 32h32v96c0 17.7 14.3 32 32 32h192c17.7 0 32-14.3 32-32v-96h32c17.7 0 32-14.3 32-32V192c0-17.7-14.3-32-32-32H96zm256 320H160v-96h192v96zm-32-176c-8.8 0-16-7.2-16-16s7.2-16 16-16 16 7.2 16 16-7.2 16-16 16z'/%3E%3C/svg%3E">
     
-    <!-- Favicon: Printer Icon for browser tabs -->
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9V2h12v7'/%3E%3Cpath d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M6 14h12v8H6z'/%3E%3C/svg%3E" />
     
     <!-- Tailwind CSS -->
@@ -28,9 +28,9 @@
             },
             colors: {
               uribe: {
-                light: '#60a5fa', // Blue 400
-                DEFAULT: '#2563eb', // Blue 600
-                dark: '#1e40af', // Blue 800
+                light: '#60a5fa',
+                DEFAULT: '#2563eb',
+                dark: '#1e40af',
               }
             }
           }
@@ -42,7 +42,30 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      /* Custom scrollbar for dark sidebar */
+      
+      /* Normalización para iPhone (iOS) */
+      input[type="date"] {
+        position: relative;
+        -webkit-appearance: none;
+        appearance: none;
+        min-height: 3rem; /* Equivalente a py-3 */
+        display: flex;
+        align-items: center;
+      }
+
+      /* Invertir el icono de calendario en modo oscuro para iOS */
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        opacity: 0.6;
+      }
+
+      /* Quitar estilos internos de iOS que rompen el layout */
+      input[type="date"]::-webkit-inner-spin-button,
+      input[type="date"]::-webkit-clear-button {
+        display: none;
+        -webkit-appearance: none;
+      }
+
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
       }
@@ -55,6 +78,14 @@
       }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #475569; 
+      }
+
+      /* Padding para la Isla Dinámica y el Home Indicator */
+      .safe-top {
+        padding-top: env(safe-area-inset-top);
+      }
+      .safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
       }
     </style>
   <script type="importmap">

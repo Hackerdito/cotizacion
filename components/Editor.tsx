@@ -20,7 +20,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Ref for the hidden preview used for PDF generation
   const printRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,10 +29,11 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
       setDate(initialQuote.date);
       setItems(initialQuote.items);
     } else {
-      // Default state for new quote
       setItems([{ id: uuidv4(), description: '', price: 0, isUnitPrice: false }]);
       setClientName('');
-      setDate('');
+      // Auto-set today's date in YYYY-MM-DD format for the input
+      const today = new Date().toISOString().split('T')[0];
+      setDate(today);
     }
   }, [initialQuote]);
 
@@ -77,7 +77,7 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         };
         await onSave(quoteToSave);
     } catch (e) {
-        // Error handled in storageService or parent
+        console.error("Save error", e);
     } finally {
         setIsSaving(false);
     }
@@ -100,7 +100,6 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         });
 
         const imgData = canvas.toDataURL('image/png');
-        
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
@@ -112,14 +111,11 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        
         const fileName = quoteName 
             ? `Cotizacion-${quoteName.replace(/\s+/g, '-')}.pdf` 
             : `Cotizacion-${clientName.replace(/\s+/g, '-')}.pdf`;
-            
         pdf.save(fileName);
     } catch (error) {
-        console.error("Error generating PDF", error);
         alert("Hubo un error generando el PDF.");
     } finally {
         setIsGeneratingPdf(false);
@@ -138,12 +134,13 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
 
   return (
     <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-gray-100">
-      {/* Left Side: Form Controls - Dark Theme for Contrast */}
+      {/* Sidebar: Inputs */}
       <div className="w-full lg:w-1/3 bg-[#1e293b] border-r border-gray-700 flex flex-col h-full shadow-2xl z-20 text-white">
-        <div className="p-6 border-b border-gray-700 bg-[#0f172a] flex flex-col">
+        {/* Header con soporte Safe Area para Notch */}
+        <div className="px-6 pb-6 border-b border-gray-700 bg-[#0f172a] flex flex-col safe-top">
             <button 
                 onClick={onCancel} 
-                className="mt-[50px] mb-6 inline-flex items-center self-start bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-lg active:scale-95 group"
+                className="mt-[50px] mb-6 inline-flex items-center self-start bg-[#f97316] hover:bg-[#ea580c] text-white px-5 py-2.5 rounded-xl font-black text-sm transition-all shadow-xl active:scale-95 group border-2 border-orange-400/20"
             >
                 <ArrowLeft size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> 
                 VOLVER AL INICIO
@@ -155,100 +152,99 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-            {/* General Info */}
             <div className="space-y-5">
                 <div>
-                    <label className="flex items-center text-sm font-medium text-blue-300 mb-2">
-                        <FileType size={14} className="mr-2"/> Nombre del Proyecto / Cotización
+                    <label className="flex items-center text-sm font-semibold text-blue-300 mb-2">
+                        <FileType size={14} className="mr-2"/> NOMBRE DEL PROYECTO
                     </label>
                     <input
                         type="text"
                         value={quoteName}
                         onChange={(e) => setQuoteName(e.target.value)}
                         placeholder="Ej. Impresión de Volantes"
-                        className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
                     />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-5">
                      <div>
-                        <label className="flex items-center text-sm font-medium text-blue-300 mb-2">
-                            <Calendar size={14} className="mr-2"/> Fecha
+                        <label className="flex items-center text-sm font-semibold text-blue-300 mb-2">
+                            <Calendar size={14} className="mr-2"/> FECHA
                         </label>
+                        {/* Input de fecha optimizado para iOS */}
                         <input
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            placeholder="DD/MM/AAAA"
-                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark]"
+                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:dark] appearance-none"
+                            style={{ WebkitAppearance: 'none' }}
                         />
                     </div>
                     <div>
-                        <label className="flex items-center text-sm font-medium text-blue-300 mb-2">
-                            <User size={14} className="mr-2"/> Cliente
+                        <label className="flex items-center text-sm font-semibold text-blue-300 mb-2">
+                            <User size={14} className="mr-2"/> CLIENTE
                         </label>
                         <input
                             type="text"
                             value={clientName}
                             onChange={(e) => setClientName(e.target.value)}
                             placeholder="Ejemplo: Diana" 
-                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 bg-[#334155] border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
                         />
                     </div>
                 </div>
             </div>
 
-            <hr className="border-gray-700" />
+            <hr className="border-gray-700/50" />
 
-            {/* Line Items */}
             <div>
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-white">Conceptos</h3>
+                    <h3 className="text-lg font-bold text-white">CONCEPTOS</h3>
                     <button
                         onClick={handleAddItem}
-                        className="flex items-center text-sm bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md transition-colors"
+                        className="flex items-center text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors font-bold tracking-wider"
                     >
-                        <Plus size={16} className="mr-1" /> Agregar Fila
+                        <Plus size={14} className="mr-1" /> AGREGAR FILA
                     </button>
                 </div>
                 
                 <div className="space-y-4">
                     {items.map((item, index) => (
-                        <div key={item.id} className="bg-[#334155] p-4 rounded-xl border border-gray-600 relative group shadow-sm">
-                            <div className="absolute top-2 right-2 flex gap-2">
+                        <div key={item.id} className="bg-[#334155] p-4 rounded-2xl border border-gray-600 relative group shadow-lg">
+                            <div className="absolute top-2 right-2">
                                 <button
                                     onClick={() => handleRemoveItem(item.id)}
                                     className="text-gray-400 hover:text-red-400 p-2 transition-colors"
-                                    title="Eliminar fila"
                                 >
                                     <Trash2 size={16} />
                                 </button>
                             </div>
                             <div className="mb-3 pr-8">
-                                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Descripción</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Descripción</label>
                                 <textarea
                                     value={item.description}
                                     onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                                    placeholder="Descripción del producto..."
-                                    className="w-full px-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                    placeholder="Producto o servicio..."
+                                    className="w-full px-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
                                     rows={2}
                                 />
                             </div>
-                            <div className="flex gap-4">
+                            <div className="flex gap-4 items-end">
                                 <div className="flex-1">
-                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Precio</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Precio</label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-gray-400 font-bold">$</span>
+                                        <span className="absolute left-3 top-2.5 text-blue-400 font-black">$</span>
                                         <input
                                             type="number"
+                                            inputMode="decimal"
                                             value={item.price === 0 ? '' : item.price}
                                             onChange={(e) => handlePriceChange(item.id, e.target.value)}
                                             placeholder="0.00"
-                                            className="w-full pl-8 pr-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg"
+                                            className="w-full pl-8 pr-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold"
                                         />
                                     </div>
                                 </div>
-                                <div className="flex items-end mb-2">
+                                <div className="mb-1">
                                      <label className="flex items-center space-x-2 cursor-pointer select-none group">
                                         <div className="relative">
                                             <input 
@@ -260,8 +256,8 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                                             <div className={`w-10 h-6 rounded-full transition-colors ${item.isUnitPrice ? 'bg-blue-600' : 'bg-gray-600'}`}></div>
                                             <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform ${item.isUnitPrice ? 'translate-x-4' : 'translate-x-0'}`}></div>
                                         </div>
-                                        <span className={`text-sm font-medium ${item.isUnitPrice ? 'text-blue-400' : 'text-gray-400'}`}>
-                                            {item.isUnitPrice ? 'C/U' : 'Total'}
+                                        <span className={`text-[10px] font-black tracking-tighter ${item.isUnitPrice ? 'text-blue-400' : 'text-gray-400'}`}>
+                                            C/U
                                         </span>
                                     </label>
                                 </div>
@@ -272,45 +268,33 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
             </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="p-6 border-t border-gray-700 bg-[#0f172a] flex gap-3">
+        {/* Action Buttons: Safe Area para Home Indicator en iPhone */}
+        <div className="p-6 border-t border-gray-700 bg-[#0f172a] flex gap-3 safe-bottom">
              <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex-1 flex justify-center items-center bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 font-bold tracking-wide disabled:opacity-50"
+                className="flex-1 flex justify-center items-center bg-blue-600 text-white px-4 py-4 rounded-xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/20 font-black tracking-widest disabled:opacity-50 active:scale-95"
             >
-                {isSaving ? (
-                    <span className="animate-pulse">GUARDANDO...</span>
-                ) : (
-                    <>
-                        <Save size={18} className="mr-2" />
-                        GUARDAR
-                    </>
-                )}
+                {isSaving ? "ESPERA..." : "GUARDAR"}
             </button>
             <button
                 onClick={generatePDF}
                 disabled={isGeneratingPdf}
-                className="flex-1 flex justify-center items-center bg-white text-gray-900 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors shadow-sm font-bold disabled:opacity-50"
+                className="flex-1 flex justify-center items-center bg-white text-gray-900 px-4 py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg font-black tracking-widest disabled:opacity-50 active:scale-95"
             >
-                {isGeneratingPdf ? 'GENERANDO...' : (
-                    <>
-                        <Download size={18} className="mr-2" />
-                        PDF
-                    </>
-                )}
+                {isGeneratingPdf ? "..." : "PDF"}
             </button>
         </div>
       </div>
 
-      {/* Right Side: Live Preview */}
+      {/* Preview Section */}
       <div className="hidden lg:flex flex-1 bg-gray-200 justify-center items-start overflow-y-auto p-8">
         <div className="transform scale-[0.6] origin-top shadow-2xl">
             <QuotePreview quote={currentQuoteData} />
         </div>
       </div>
 
-      {/* Hidden container for PDF generation */}
+      {/* Hidden for PDF */}
       <div className="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
          <div className="w-[800px]">
              <QuotePreview ref={printRef} quote={currentQuoteData} />

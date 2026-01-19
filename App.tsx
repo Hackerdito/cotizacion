@@ -11,28 +11,32 @@ const App: React.FC = () => {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load quotes on mount after authentication
   useEffect(() => {
     const init = async () => {
       try {
-        // Autenticación anónima para tener permisos de lectura/escritura
+        // Intentar autenticación anónima
         await signInAnonymously(auth);
         console.log("Autenticado en Firebase");
+      } catch (error: any) {
+        // Si falla por restricción (admin-restricted-operation), no bloqueamos la app
+        console.warn("Firebase Auth restringido o deshabilitado. Se intentará continuar sin auth.", error.code);
+      } finally {
+        // En cualquier caso, intentamos cargar los datos
         await loadQuotes();
-      } catch (error) {
-        console.error("Error de inicialización/autenticación:", error);
-        // Intentamos cargar de todas formas por si las reglas son públicas
-        await loadQuotes(); 
       }
     };
     init();
   }, []);
 
   const loadQuotes = async () => {
-    // No ponemos setIsLoading(true) aquí para evitar parpadeos si ya estaba cargando
-    const data = await storageService.getQuotes();
-    setQuotes(data);
-    setIsLoading(false);
+    try {
+        const data = await storageService.getQuotes();
+        setQuotes(data);
+    } catch (e) {
+        console.error("No se pudieron cargar las cotizaciones:", e);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleCreateNew = () => {
@@ -46,9 +50,13 @@ const App: React.FC = () => {
   };
 
   const handleSaveQuote = async (quote: Quote) => {
-    await storageService.saveQuote(quote);
-    await loadQuotes();
-    setView('dashboard');
+    try {
+        await storageService.saveQuote(quote);
+        await loadQuotes();
+        setView('dashboard');
+    } catch (e) {
+        alert("Error al guardar. Verifica que el inicio de sesión anónimo esté activo en tu consola Firebase.");
+    }
   };
 
   const handleDeleteQuote = async (id: string) => {
@@ -63,8 +71,9 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0f172a] text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mb-4"></div>
+        <p className="text-sm font-bold tracking-widest animate-pulse">CARGANDO...</p>
       </div>
     );
   }
