@@ -28,9 +28,26 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
       setQuoteName(initialQuote.quoteName || '');
       setClientName(initialQuote.clientName);
       setDate(initialQuote.date);
-      setItems(initialQuote.items);
+      const normalizedItems = (initialQuote.items || []).map(item => {
+        const isUnit = Boolean(item.isUnitPrice);
+        const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+        const unitPrice = item.unitPrice !== undefined 
+          ? item.unitPrice 
+          : (isUnit ? (item.price > 0 ? Number((item.price / quantity).toFixed(2)) : 0) : item.price);
+        const price = isUnit 
+          ? Number((quantity * unitPrice).toFixed(2)) 
+          : (item.price || 0);
+        return {
+          ...item,
+          isUnitPrice: isUnit,
+          quantity,
+          unitPrice,
+          price
+        };
+      });
+      setItems(normalizedItems);
     } else {
-      setItems([{ id: uuidv4(), description: '', price: 0, isUnitPrice: false }]);
+      setItems([{ id: uuidv4(), description: '', price: 0, isUnitPrice: false, quantity: 1, unitPrice: 0 }]);
       setClientName('');
       const today = new Date().toISOString().split('T')[0];
       setDate(today);
@@ -38,20 +55,76 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
   }, [initialQuote]);
 
   const handleAddItem = () => {
-    setItems([...items, { id: uuidv4(), description: '', price: 0, isUnitPrice: false }]);
+    setItems([...items, { id: uuidv4(), description: '', price: 0, isUnitPrice: false, quantity: 1, unitPrice: 0 }]);
   };
 
   const handleRemoveItem = (id: string) => {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  const handleItemChange = (id: string, field: keyof LineItem, value: string | number | boolean) => {
+  const handleItemChange = (id: string, field: keyof LineItem, value: any) => {
     setItems(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
-  const handlePriceChange = (id: string, value: string) => {
-    const numericValue = value === '' ? 0 : parseFloat(value);
-    setItems(items.map((item) => (item.id === id ? { ...item, price: numericValue } : item)));
+  const handleToggleUnitPrice = (id: string, isUnitPrice: boolean) => {
+    setItems(items.map((item) => {
+      if (item.id !== id) return item;
+      const qty = item.quantity && item.quantity > 0 ? item.quantity : 1;
+      const unitP = item.unitPrice !== undefined && item.unitPrice > 0 
+        ? item.unitPrice 
+        : (item.price > 0 ? Number((item.price / qty).toFixed(2)) : 0);
+      const price = isUnitPrice 
+        ? Number((qty * unitP).toFixed(2)) 
+        : item.price;
+
+      return {
+        ...item,
+        isUnitPrice,
+        quantity: qty,
+        unitPrice: unitP,
+        price
+      };
+    }));
+  };
+
+  const handleQuantityChange = (id: string, rawVal: string) => {
+    const qty = rawVal === '' ? 0 : parseFloat(rawVal);
+    setItems(items.map((item) => {
+      if (item.id !== id) return item;
+      const unitP = item.unitPrice !== undefined ? item.unitPrice : 0;
+      const computedTotal = item.isUnitPrice ? Number((qty * unitP).toFixed(2)) : item.price;
+      return {
+        ...item,
+        quantity: qty,
+        price: computedTotal
+      };
+    }));
+  };
+
+  const handleUnitPriceChange = (id: string, rawVal: string) => {
+    const unitP = rawVal === '' ? 0 : parseFloat(rawVal);
+    setItems(items.map((item) => {
+      if (item.id !== id) return item;
+      const qty = item.quantity && item.quantity > 0 ? item.quantity : 1;
+      const computedTotal = Number((qty * unitP).toFixed(2));
+      return {
+        ...item,
+        unitPrice: unitP,
+        price: computedTotal
+      };
+    }));
+  };
+
+  const handleDirectPriceChange = (id: string, rawVal: string) => {
+    const numericValue = rawVal === '' ? 0 : parseFloat(rawVal);
+    setItems(items.map((item) => {
+      if (item.id !== id) return item;
+      return {
+        ...item,
+        price: numericValue,
+        unitPrice: numericValue
+      };
+    }));
   };
 
   const handleSave = async () => {
@@ -243,61 +316,136 @@ export const Editor: React.FC<EditorProps> = ({ initialQuote, onSave, onCancel }
                 </div>
                 
                 <div className="space-y-4">
-                    {items.map((item) => (
-                        <div key={item.id} className="bg-[#334155] p-4 rounded-2xl border border-gray-600 relative group shadow-lg">
-                            <div className="absolute top-2 right-2">
-                                <button
-                                    onClick={() => handleRemoveItem(item.id)}
-                                    className="text-gray-400 hover:text-red-400 p-2 transition-colors"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                            <div className="mb-3 pr-8">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Descripción</label>
-                                <textarea
-                                    value={item.description}
-                                    onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                                    placeholder="Producto o servicio..."
-                                    className="w-full px-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-                                    rows={2}
-                                />
-                            </div>
-                            <div className="flex gap-4 items-end">
-                                <div className="flex-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Precio</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-blue-400 font-black">$</span>
-                                        <input
-                                            type="number"
-                                            inputMode="decimal"
-                                            value={item.price === 0 ? '' : item.price}
-                                            onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                            placeholder="0.00"
-                                            className="w-full pl-8 pr-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold"
-                                        />
-                                    </div>
+                    {items.map((item, index) => {
+                        const isUnit = Boolean(item.isUnitPrice);
+                        const qty = item.quantity && item.quantity > 0 ? item.quantity : 1;
+                        const unitP = item.unitPrice !== undefined && item.unitPrice > 0 
+                            ? item.unitPrice 
+                            : (isUnit && item.price > 0 ? Number((item.price / qty).toFixed(2)) : item.price);
+                        const lineTotal = isUnit ? Number((qty * unitP).toFixed(2)) : (item.price || 0);
+
+                        return (
+                            <div key={item.id} className="bg-[#334155] p-4 rounded-2xl border border-gray-600 relative group shadow-lg space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] font-black text-blue-400 uppercase tracking-wider">
+                                        CONCEPTO #{String(index + 1).padStart(2, '0')}
+                                    </span>
+                                    <button
+                                        onClick={() => handleRemoveItem(item.id)}
+                                        className="text-gray-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                                        title="Eliminar concepto"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
-                                <div className="mb-1">
-                                     <label className="flex items-center space-x-2 cursor-pointer select-none group">
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-1 block">
+                                        Descripción del Servicio / Producto
+                                    </label>
+                                    <textarea
+                                        value={item.description}
+                                        onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                                        placeholder="Ej. Tazas personalizadas en cerámica blanca..."
+                                        className="w-full px-3 py-2 bg-[#1e293b] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                                        rows={2}
+                                    />
+                                </div>
+
+                                {/* Modalidad: Global o Unitario */}
+                                <div className="flex items-center justify-between bg-[#1e293b]/70 px-3 py-2 rounded-xl border border-gray-700">
+                                    <span className="text-xs font-semibold text-gray-300">
+                                        {isUnit ? '¿Cotizar por unidad (C/U)?' : 'Precio Global'}
+                                    </span>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <span className={`text-[10px] font-extrabold tracking-tight ${isUnit ? 'text-blue-400' : 'text-gray-400'}`}>
+                                            {isUnit ? 'UNITARIO (C/U)' : 'GLOBAL'}
+                                        </span>
                                         <div className="relative">
                                             <input 
                                                 type="checkbox" 
                                                 className="sr-only" 
-                                                checked={item.isUnitPrice || false}
-                                                onChange={(e) => handleItemChange(item.id, 'isUnitPrice', e.target.checked)}
+                                                checked={isUnit}
+                                                onChange={(e) => handleToggleUnitPrice(item.id, e.target.checked)}
                                             />
-                                            <div className={`w-10 h-6 rounded-full transition-colors ${item.isUnitPrice ? 'bg-blue-600' : 'bg-gray-600'}`}></div>
-                                            <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform ${item.isUnitPrice ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                            <div className={`w-10 h-6 rounded-full transition-colors ${isUnit ? 'bg-blue-600' : 'bg-gray-600'}`}></div>
+                                            <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform ${isUnit ? 'translate-x-4' : 'translate-x-0'}`}></div>
                                         </div>
-                                        <span className={`text-[10px] font-black tracking-tighter ${item.isUnitPrice ? 'text-blue-400' : 'text-gray-400'}`}>
-                                            C/U
-                                        </span>
                                     </label>
                                 </div>
+
+                                {isUnit ? (
+                                    <div className="space-y-3 pt-1">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1 block">
+                                                    Cantidad
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="any"
+                                                    inputMode="numeric"
+                                                    value={item.quantity === undefined || item.quantity === 0 ? '' : item.quantity}
+                                                    onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                                    placeholder="Ej. 50"
+                                                    className="w-full px-3 py-2 bg-[#1e293b] border border-blue-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-base font-bold"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1 block">
+                                                    P. Unitario ($)
+                                                </label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-2 text-blue-400 font-black">$</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="any"
+                                                        inputMode="decimal"
+                                                        value={item.unitPrice === undefined || item.unitPrice === 0 ? '' : item.unitPrice}
+                                                        onChange={(e) => handleUnitPriceChange(item.id, e.target.value)}
+                                                        placeholder="20.00"
+                                                        className="w-full pl-7 pr-3 py-2 bg-[#1e293b] border border-blue-500/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-base font-bold"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Total calculado dinámicamente */}
+                                        <div className="bg-blue-950/70 border border-blue-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between">
+                                            <span className="text-xs text-blue-200">
+                                                {qty} {qty === 1 ? 'unidad' : 'unidades'} × ${unitP.toLocaleString('es-MX', { minimumFractionDigits: 2 })}:
+                                            </span>
+                                            <div className="text-right">
+                                                <span className="text-[10px] text-blue-300 uppercase font-bold mr-1.5">Importe:</span>
+                                                <span className="text-base font-black text-white font-mono">
+                                                    ${lineTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="pt-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">
+                                            Precio Total ($)
+                                        </label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-2.5 text-blue-400 font-black">$</span>
+                                            <input
+                                                type="number"
+                                                inputMode="decimal"
+                                                value={item.price === 0 ? '' : item.price}
+                                                onChange={(e) => handleDirectPriceChange(item.id, e.target.value)}
+                                                placeholder="0.00"
+                                                className="w-full pl-8 pr-3 py-2.5 bg-[#1e293b] border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>

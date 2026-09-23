@@ -3,7 +3,9 @@ export interface LineItem {
   id: string;
   description: string;
   price: number;
-  isUnitPrice?: boolean; // New optional field to toggle "C/U" display
+  isUnitPrice?: boolean; // Alternar si es producto cotizado por unidad
+  quantity?: number; // Cantidad solicitada (ej. 50)
+  unitPrice?: number; // Precio por unidad individual (ej. 20)
 }
 
 export interface Quote {

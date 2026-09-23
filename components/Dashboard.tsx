@@ -36,7 +36,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex items-center gap-2 sm:gap-4">
                 <div className="h-9 sm:h-12 w-auto transition-all">
                     <img 
-                        src="/logotipo.png" 
+                        src="https://cotizacionuribe.netlify.app/logotipo.png" 
                         alt="Logo" 
                         className="h-full w-auto object-contain"
                     />
@@ -129,7 +129,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Aprox.</p>
                                 <p className="font-bold text-gray-900 text-lg">
-                                    ${quote.items.reduce((sum, item) => sum + item.price, 0).toLocaleString()}
+                                    ${quote.items.reduce((sum, item) => {
+                                        if (item.isUnitPrice && item.unitPrice !== undefined) {
+                                            const qty = item.quantity && item.quantity > 0 ? item.quantity : 1;
+                                            return sum + (qty * item.unitPrice);
+                                        }
+                                        return sum + (item.price || 0);
+                                    }, 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
                             
